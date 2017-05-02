@@ -4,5 +4,5 @@ compiler:
     - gcc
     - clang
 
-install:
+script:
     - make CC="$CC"
