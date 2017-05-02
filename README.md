@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/zbanks/optim.svg?branch=master)](https://travis-ci.org/zbanks/optim)
+
 # `optim`
 Immediate-mode command line option parsing for C.
 
