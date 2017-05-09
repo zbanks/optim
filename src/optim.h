@@ -8,9 +8,9 @@
 typedef struct optim optim_t;
 
 // Create an optim instance from `argc` and `argv`
-// `usage` is a one-line description how to invoke your program
+// `usage` is a one-line description how to invoke the program
 // and will be prefixed with the basename. Do not end in '\n'
-// optim will own `argv`, and may modify its contents
+// optim will take ownership of `argv`, and may modify its contents
 optim_t * optim_start(int argc, char ** argv, const char * usage); 
 
 // Finish parsing the options & destroy `*optim_p`, setting it to NULL
@@ -36,6 +36,11 @@ void optim_flag(optim_t * optim, char opt, const char * longopt, const char * he
 // Take positional arguments
 // This function should only be called after all other `optim_arg` and `optim_flag`s
 void optim_positionals(optim_t * optim);
+
+// Take unused/invalid arguments
+// This function should only be called after you've used all other arguments
+// If you consume an argument with `optim_get_string`, optim will consider it used
+void optim_unused(optim_t * optim);
 
 // -- Reading Options --
 

@@ -34,6 +34,7 @@ struct optim {
     bool asked_for_help;
     bool asked_for_version;
     bool takes_positionals;
+    bool takes_unused;
 
     char cur_opt;
     const char * cur_longopt;
@@ -109,6 +110,7 @@ optim_t * optim_start(int argc_, char ** argv, const char * example_usage) {
         optim->args[0].rhs = argv[0];
     else
         optim->args[0].rhs = ++basename;
+    optim->args[0].used = true;
     optim->invoc = &optim->args[0];
 
     // Parse remaining args
@@ -368,6 +370,10 @@ void optim_arg(optim_t * optim, char opt, const char * longopt, const char * met
         optim_error(optim, "Internal optim error: `%s` called after `optim_positionals`", __func__);
         return;
     }
+    if (optim->takes_unused) {
+        optim_error(optim, "Internal optim error: `%s` called after `optim_unused`", __func__);
+        return;
+    }
 
     if (metavar == NULL)
         metavar = "ARG";
@@ -457,6 +463,10 @@ void optim_flag(optim_t * optim, char opt, const char * longopt, const char * he
         optim_error(optim, "Internal optim error: `%s` called after `optim_positionals`", __func__);
         return;
     }
+    if (optim->takes_unused) {
+        optim_error(optim, "Internal optim error: `%s` called after `optim_unused`", __func__);
+        return;
+    }
 
     optim_option_usage(optim, opt, longopt, NULL, help);
     optim->cur_opt = opt;
@@ -499,6 +509,10 @@ void optim_flag(optim_t * optim, char opt, const char * longopt, const char * he
 void optim_positionals(optim_t * optim) {
     if (optim == NULL) { OPTIM_INVALID; return; }
 
+    if (optim->takes_unused) {
+        optim_error(optim, "Internal optim error: `%s` called after `optim_unused`", __func__);
+        return;
+    }
     if (optim->takes_positionals)
         return;
 
@@ -524,6 +538,38 @@ void optim_positionals(optim_t * optim) {
     }
 }
 
+void optim_unused(optim_t * optim) {
+    if (optim == NULL) { OPTIM_INVALID; return; }
+
+    if (optim->takes_unused)
+        return;
+
+    optim->takes_unused = true;
+    optim->cur_opt = '\0';
+    optim->cur_longopt = NULL;
+    optim->cur_count = 0;
+    optim->cur_arg = NULL;
+
+    struct optim_arg * last_arg = NULL;
+
+    for (size_t i = 0; i < optim->argc; i++) {
+        struct optim_arg * arg = &optim->args[i];
+        if (arg->used) continue;
+
+        // Rehydrate stripped forms
+        arg->arg = optim->argv[i];
+        if (arg->rhs != NULL)
+            arg->rhs[-1] = '=';
+
+        if (optim->cur_arg == NULL)
+            optim->cur_arg = arg;
+        if (last_arg != NULL)
+            last_arg->next = arg;
+        last_arg = arg;
+        optim->cur_count++;
+    }
+}
+
 // -- Reading Options --
 
 int optim_get_count(optim_t * optim) {
@@ -531,7 +577,7 @@ int optim_get_count(optim_t * optim) {
         return (OPTIM_INVALID, -1);
 
     if (optim->cur_count < 0)
-        optim_error(optim, "Internal optim error: `%s` called before `optim_arg`, `optim_flag`, or `optim_positionals`", __func__);
+        optim_error(optim, "Internal optim error: `%s` called before `optim_arg`, `optim_flag`, `optim_positionals`, or `optim_unused`", __func__);
 
     return optim->cur_count;
 }
@@ -540,7 +586,7 @@ const char * optim_get_string(optim_t * optim, const char * empty) {
     if (optim == NULL) { OPTIM_INVALID; return empty; }
 
     if (optim->cur_count < 0)  {
-        optim_error(optim, "Internal optim error: `%s` called before `optim_arg`, `optim_flag`, or `optim_positionals`", __func__);
+        optim_error(optim, "Internal optim error: `%s` called before `optim_arg`, `optim_flag`, `optim_positionals`, or `optim_unused`", __func__);
         return empty;
     }
 
@@ -550,9 +596,13 @@ const char * optim_get_string(optim_t * optim, const char * empty) {
     optim->cur_count--;
     struct optim_arg * arg = optim->cur_arg;
     optim->cur_arg = arg->next;
+    arg->used = true;
+    
+    if (optim->takes_unused)
+        return arg->arg;
+
     switch (arg->type) {
     case TYPE_BARE:
-        arg->used = true;
         return arg->arg;
     case TYPE_LONG_ARG:
         return arg->rhs;
@@ -575,7 +625,7 @@ long optim_get_long(optim_t * optim, long empty) {
         return (OPTIM_INVALID, empty);
 
     if (optim->cur_count < 0) {
-        optim_error(optim, "Internal optim error: `%s` called before `optim_arg`, `optim_flag`, or `optim_positionals`", __func__);
+        optim_error(optim, "Internal optim error: `%s` called before `optim_arg`, `optim_flag`, `optim_positionals`, or `optim_unused`", __func__);
         return empty;
     }
 

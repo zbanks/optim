@@ -6,3 +6,5 @@ compiler:
 
 script:
     - make CC="$CC"
+    - ./optim_test --help
+    - ./optim_test --version

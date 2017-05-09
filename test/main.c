@@ -42,7 +42,6 @@ int main(int argc, char ** argv) {
 
     optim_t * o = optim_start(argc, argv, "[-a] [-b] <path>");
     assert(o != NULL);
-    optim_error(o, "test\n");
 
     optim_usage(o, "My test optim program\n");
     optim_version(o, "optim_test Version 1.0\nAuthor: Zach Banks\n");
@@ -60,7 +59,9 @@ int main(int argc, char ** argv) {
 
     optim_flag(o, 'c', NULL, "C flag without longform");
 
-    optim_arg(o, 0, "delta", "diff", "Delta parameter without short form");
+    optim_arg(o, 0, "delta", "diff", "Delta parameter without short form [0]");
+    printf("Using %ld for delta\n", optim_get_long(o, 0));
+    
     optim_arg(o, 'e', NULL, "exarg", "Extra option with an arg but no longopt");
 
     optim_positionals(o);
@@ -68,7 +69,13 @@ int main(int argc, char ** argv) {
         optim_error(o, "expected at least one positional argument");
 
     while (optim_get_count(o) > 0)
-        printf("Got positional '%s'\n", optim_get_string(o, "none"));
+        printf("Got positional: '%s'\n", optim_get_string(o, "none"));
+
+    optim_unused(o);
+    const char * a = NULL;
+    while ((a = optim_get_string(o, NULL))) {
+        printf("Got unused arg: '%s'\n", a);
+    }
 
     int rc = optim_finish(&o);
     if (rc < 0) exit(EXIT_FAILURE);
